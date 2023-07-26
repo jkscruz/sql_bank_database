@@ -1,0 +1,448 @@
+    /////////////////////////////////////////////////// CREATING DATABASE + TABLES
+  
+--- CREATING THE DATABASE
+CREATE DATABASE bank_management;
+​
+​
+--- CREATING A TABLE TO STORE BANK BRANCH INFO
+CREATE TABLE branch (
+  branch_id INT NOT NULL AUTO_INCREMENT,
+  branch_location VARCHAR(50) NOT NULL,
+  PRIMARY KEY (branch_id);
+​
+INSERT INTO branch
+  (branch_id, branch_location)
+  VALUES
+  (1, 'LONDON'),
+  (2, 'PARIS'),
+  (3, 'MANCHESTER');
+  
+  SELECT * FROM branch;
+​
+--- CREATING A TABLE TO STORE CUSTOMER INFORMATION
+CREATE customer_data (
+  customer_id INT NOT NULL AUTO_INCREMENT,
+  customer_forename VARCHAR(50) NOT NULL,
+  customer_surname VARCHAR(50) NOT NULL,
+  customer_address VARCHAR(50) NOT NULL,
+  customer_email VARCHAR(50) DEFAULT NULL,
+  customer_annual_income FLOAT NOT NULL DEFAULT 0,
+  c_branch INT NOT NULL,
+  PRIMARY KEY (customer_id),
+  KEY customer_annual_income_idx (customer_annual_income),
+  KEY c_branch_idx (c_branch),
+  CONSTRAINT branch_id FOREIGN KEY (c_branch) REFERENCES branch (branch_id) ON DELETE CADCADE ON UPDATE CASCADE;
+  
+  select * from customer_data;
+​
+--- CREATING TABLE TO STORE CUSTOMER CREDIT INFORMATION
+​
+ CREATE TABLE `customer_credit` (
+  `customer_id` int NOT NULL,
+  `customer_annual_income` float NOT NULL,
+  `credit_limit` float DEFAULT NULL,
+  PRIMARY KEY (`customer_id`),
+  KEY `FK_annual_income_idx` (`customer_annual_income`),
+  CONSTRAINT `FK_annual_income` FOREIGN KEY (`customer_annual_income`) REFERENCES `customer_data` (`customer_annual_income`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `FK_credit_c_id` FOREIGN KEY (`customer_id`) REFERENCES `customer_data` (`customer_id`) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+select * from customer_credit;
+
+    UPDATE customer_credit
+SET credit_limit =
+	CASE WHEN (customer_annual_income<=12570) THEN 0
+    WHEN (customer_annual_income BETWEEN 12571 AND 50270) THEN 1000
+    WHEN (customer_annual_income BETWEEN 50271 AND 125140) THEN 5000
+    WHEN (customer_annual_income > 125140) THEN 10000
+    END;
+​
+--- CREATING TABLE TO STORE ACCOUNT DATA
+CREATE account_data (
+  account_id INT NOT NULL AUTO_INCREMENT,
+  account_balance FLOAT NOT NULL DEFAULT O,
+  accholder_id INT NOT NULL,
+  PRIMARY JEY (account_id),
+  KEY accholder_id_idx (accholder_id),
+  CONSTRAINT accholder_id FOREIGN KEY (accholder_id) REFERENCES customer_data (customer_id) ON DELETE CASCADE ON UPDATE CASCADE;
+​
+select * from account_data;
+
+--- CREATING TABLE TO STORE TRANSACTIONS
+CREATE transactions (
+  Transaction_id INT NOT NULL AUTO_INCREMENT,
+  Amount INT NOT NULL,
+  Acc_debited INT NOT NULL,
+  Acc_credited INT NOT NULL,
+  Created_on DATETIME NOT NULL DEFAULT CURRENT TIMESTAMP,
+  PRIMARY KEY (Transaction_id),
+  CONSTRAINT acc_deb FOREIGN KEY(acc_debited) REFERENCES account_data (account_id),
+  CONSTRAINT acc_cred FOREIGN KEY(acc_credited) REFERENCES account_data (account_id);
+  
+  SELECT * FROM transactions;
+​
+​
+--- CREATING TABLE TO STORE EMPLOYEE DATA
+CREATE employee_data (
+  Employee_id INT NOT NULL AUTO_INCREMENT,
+  Employee_surname VARCHAR(5O) NOT NULL,
+  Employee_forename VARCHAR(5O) NOT NULL,
+  Job_Title VARCHAR(5O) NOT NULL,
+  Hourly_wage FLOAT NOT NULL,
+  Annual_salary_before_tax FLOAT DEFAULT NULL,
+  e_branch INT NOT NULL,
+  PRIMARY KEY (Employee_id),
+  KEY e_branch_idx (e_branch)
+  CONSTRAINT FK_e_branch FOREIGN KEY(e_branch) REFERENCES branch (branch_id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE;
+  
+  SELECT * FROM EMPLOYEE_DATA;
+​
+--- INSERTING EMPLOYEE DATA
+  INSERT INTO employee_data
+(employee_id, employee_surname, employee_forename, job_title, hourly_wage, e_branch)
+VALUES
+(123, 'Doe', 'John', 'Bank Teller', 16.67, 1),
+(124, 'Clarke', 'Clarissa', 'Bank Teller', 18.62, 1),
+(125, 'Barnet', 'Bonnie', 'Clerk', 21.83, 1),
+(126, 'Scouse', 'Samantha', 'Credit Analyst', 36.85, 1),
+(127, 'Johnson', 'Joe', 'Loan Manager', 46.07, 1),
+(128, 'Gauthier', 'Louie', 'Bank Teller', 15.30, 2),
+(129, 'Fromage', 'Martin', 'Clerk', 18.21, 2),
+(130, 'Dumont', 'Ophelie', 'Credit Analyst', 36.37, 2);
+​
+--- SETTING SALARY IN EMPLOYEE DATA AS HOURLY_WAGE * 2080 (40 hours a week x 52 weeks a year)
+UPDATE employee_data
+  SET annual_salary_before_tax = hourly_wage * 2080;
+  SELECT * FROM employee_data;
+​
+    /////////////////////////////////////////////////// TRIGGERS
+​
+--- CREATING TRIGGER TO CALCULATE ANNUAL SALARY WHEN HOURLY WAGE IS UPDATED
+CREATE TRIGGER before_hourly_wage_update
+  BEFORE UPDATE ON employee_data
+  FOR EACH ROW
+  SET NEW.annual_salary_before_tax = (NEW.hourly_wage * 2080);
+​
+--- CREATING TRIGGER TO CALCULATE HOURLY WAGE WHEN ANNUAL SALARY IS UPDATED
+CREATE TRIGGER before_annual_salary_update
+  BEFORE UPDATE ON employee_data
+  FOR EACH ROW
+  SET NEW.hourly_wage = (NEW.annual_salary_before_tax / 2080);
+  
+--- CREATING TRIGGER TO CALCULATE ANNUAL SALARY WHEN NEW EMPLOYEE DATA IS INSERTED
+CREATE TRIGGER before_hourly_wage_update
+  BEFORE INSERT ON employee_data
+  FOR EACH ROW
+  SET NEW.annual_salary_before_tax = (NEW.hourly_wage * 2080);
+​
+--- CREATING A TRIGGER TO CREATE AN ACCOUNT WHENEVER A NEW CUSTOMER IS INSERTED
+  
+CREATE TRIGGER open_first_customer_acc
+AFTER INSERT ON customer_data
+FOR EACH ROW
+  INSERT INTO account_data(accholder_id)
+  VALUES
+  (NEW.customer_id);
+​
+  --- CREATING A TRIGGER TO AUTOMATICALLY CREATE A CUSTOMER CREDIT FILE WHEN A NEW CUSTOMER IS INSERTED
+  
+CREATE TRIGGER new_customer_credit_file
+AFTER INSERT ON customer_data
+FOR EACH ROW
+  INSERT INTO customer_credit(customer_id, customer_annual_income)
+  VALUES
+  (NEW.customer_id, NEW.customer_annual_income);
+​
+  --- CREATING A TRIGGER TO AUTOMATICALLY DETERMINE THE CREDIT LIMIT COLUMN WHEN A NEW CUSTOMER CREDIT FILE IS INSERTED
+​
+CREATE TRIGGER new_c_credit_limit
+BEFORE INSERT ON customer_credit
+FOR EACH ROW
+	SET NEW.credit_limit =
+		CASE WHEN (NEW.customer_annual_income<=12570) THEN 0
+		WHEN (NEW.customer_annual_income BETWEEN 12571 AND 50270) THEN 1000
+		WHEN (NEW.customer_annual_income BETWEEN 50271 AND 125140) THEN 5000
+		WHEN (NEW.customer_annual_income > 125140) THEN 1000
+		END;
+​
+    --- CREATING A TRIGGER TO AUTOMATICALLY DETERMINE THE CREDIT LIMIT COLUMN WHEN AN EXISTING CUSTOMER CREDIT FILE IS UPDATED
+​
+CREATE TRIGGER update_credit_limit
+BEFORE UPDATE ON customer_credit
+FOR EACH ROW
+	SET NEW.credit_limit =
+		CASE WHEN (NEW.customer_annual_income<=12570) THEN 0
+		WHEN (NEW.customer_annual_income BETWEEN 12571 AND 50270) THEN 1000
+		WHEN (NEW.customer_annual_income BETWEEN 50271 AND 125140) THEN 5000
+		WHEN (NEW.customer_annual_income > 125140) THEN 1000
+		END;
+​
+  /////////////////////////////////////////////////// FUNCTIONS
+  
+--- CREATE A FUNCTION THAT CALCULATES INCOME TAX DUE
+​
+  DELIMITER //
+CREATE FUNCTION income_tax(salary_before_tax FLOAT)
+	RETURNS FLOAT
+    DETERMINISTIC
+    BEGIN
+		DECLARE income_tax FLOAT;
+		IF salary_before_tax > 125140 THEN
+			SET income_tax = 0.45;
+		ELSEIF salary_before_tax BETWEEN 50271 AND 125140 THEN 
+			SET income_tax = 0.40;
+        ELSEIF salary_before_tax BETWEEN 12571 AND 50270 THEN
+			SET income_tax = 0.20;
+		ELSEIF salary_before_tax<=12570  THEN
+			SET income_tax = 0;
+		END IF;
+        RETURN (income_tax);
+	END//salary_before_tax
+    DELIMITER ;
+​
+  /////////////////////////////////////////////////// VIEWS
+  
+------ VIEW TELLING US THE NUMBER OF CUSTOMERS, ACCOUNTS AND EMPLOYEES PER BRANCH, WHERE THERE IS AT LEAST ONE OF EACH; 
+​
+CREATE VIEW Branch_Customers_Account_Employees AS
+SELECT 
+	cd.c_branch AS 'Branch ID',
+    b.branch_location AS 'Location',
+    COUNT(DISTINCT cd.customer_id) AS 'Number of Customers',
+    COUNT(DISTINCT ad.account_id) AS 'Number of Accounts',
+    COUNT(DISTINCT ed.employee_id) AS 'Number of Employees'
+    FROM customer_data cd
+    JOIN branch b
+    ON cd.c_branch = b.branch_id
+    JOIN account_data ad
+    ON cd.customer_id = ad.accholder_id
+    JOIN employee_data ed
+    ON b.branch_id = ed.e_branch
+    GROUP BY c_branch;
+​
+SELECT * From Branch_Customers_Account_Employees;
+  
+--- CREATE A VIEW THAT SHOWS EMPLOYEE SALARIES AND TAX LIABILITIES
+​
+CREATE VIEW income_tax_liabilities AS
+  SELECT
+  ed.employee_surname AS 'Surname',
+    ed.employee_forename AS 'Name',
+    ed.job_title AS 'Position',
+    ed.hourly_wage AS 'Wage Per Hour',
+    ed.annual_salary_before_tax AS 'Yearly Salary Before Tax',
+    income_tax(ed.annual_salary_before_tax) AS 'Income Tax Rate',
+    ROUND((ed.annual_salary_before_tax - 12570), 2) AS 'Taxable Pay',
+    ROUND((ed.annual_salary_before_tax - 12570) * income_tax(ed.annual_salary_before_tax), 2) AS 'Tax Due',
+    ROUND(ed.annual_salary_before_tax - ((ed.annual_salary_before_tax - 12570) * income_tax(ed.annual_salary_before_tax)), 2) AS 'Salary After Tax'
+	FROM
+		employee_data as ed
+	ORDER BY ed.annual_salary_before_tax DESC;
+    
+    select * from income_tax_liabilities;
+​
+--- CREATING VIEW THAT SHOWS THE NAME/SURNAME OF EVERY ACCOUNTHOLDER
+CREATE VIEW all_customers_accounts AS
+    SELECT 
+        cd.customer_forename AS 'Name',
+        cd.customer_surname AS 'Surname',
+        ad.account_id AS 'Acc_No'
+    FROM (
+      customer_data cd
+      JOIN 
+      account_data ad 
+      ON (
+        cd.customer_id = ad.accholder_id))
+    ORDER BY ad.account_id;
+
+select * from all_customers_accounts;
+​
+ ------ CREATE A VIEW THAT SHOWS THE DATA OF ACCOUNTS THAT HAVE SENT MONEY (Transaction details, account balance, account holder details)
+​
+  CREATE VIEW all_paying_accounts AS
+SELECT
+	t.created_on AS "Timestamp",
+	t.transaction_number AS "Transaction ID",
+    t.amount AS "Value Paid",
+    ad.account_balance AS "Current Balance",
+    ad.account_id AS "Account ID",
+    ad.accholder_id AS "Account Holder ID",
+    cd.customer_forename AS "Account Holder Name",
+    cd.customer_surname AS "Account Holder Surname",
+    cc.credit_limit AS 'Credit Facility Availability'
+FROM
+	transactions t
+    JOIN account_data ad
+	ON t.acc_debited = ad.account_id
+	JOIN
+		customer_data cd
+        ON ad.accholder_id = cd.customer_id
+	JOIN
+		customer_credit cc
+	ON cd.customer_id = cc.customer_id
+ORDER BY t.transaction_number DESC;
+​
+​
+   ------ CREATE A VIEW THAT SHOWS THE DATA OF ACCOUNTS THAT HAVE BEEN PAID (Transaction details, account balance, account holder details)
+​
+CREATE VIEW all_receiving_accounts AS
+SELECT
+	t.created_on AS "Timestamp",
+	t.transaction_number AS "Transaction ID",
+    t.amount AS "Value Received",
+    ad.account_balance AS "Current Balance",
+    ad.account_id AS "Account ID",
+    ad.accholder_id AS "Account Holder ID",
+    cd.customer_forename AS "Account Holder Name",
+    cd.customer_surname AS "Account Holder Surname",
+    cc.credit_limit AS 'Credit Facility Availability'
+FROM
+	transactions t
+    JOIN account_data ad
+	ON t.acc_credited = ad.account_id
+	JOIN
+		customer_data cd
+        ON ad.accholder_id = cd.customer_id
+	JOIN
+		customer_credit cc
+	ON cd.customer_id = cc.customer_id
+ORDER BY t.transaction_number DESC;
+​
+  
+    /////////////////////////////////////////////////// STORED PROCEDURE
+​
+--- CREATE STORED PROCEDURE TO TRANSFER AMOUNTS BETWEEN ACCOUNTS
+​
+DELIMITER //
+CREATE PROCEDURE transfer(t_amount FLOAT, sending_account int, receiving_account int)
+This_Proc:BEGIN 
+​
+START TRANSACTION;
+​
+		IF t_amount <= 0 
+        OR sending_account = receiving_account
+			THEN LEAVE this_proc;
+		END IF;
+​
+		IF NOT EXISTS (
+			SELECT 1 FROM account_data ad
+            WHERE ad.account_id = sending_account 
+            AND ad.account_balance >= t_amount) 
+            THEN LEAVE this_proc;
+		END IF;
+        
+		IF NOT EXISTS (
+			SELECT 1 FROM account_data ad
+            WHERE ad.account_id = receiving_account) 
+            THEN LEAVE this_proc;
+		END IF;
+            
+		INSERT INTO transactions (
+        amount, acc_debited, acc_credited)
+        VALUES
+        (t_amount, sending_account, receiving_account);
+​
+		UPDATE Account_data
+		SET Account_balance = Account_balance - t_Amount
+		WHERE Account_id = Sending_account;
+    
+		UPDATE Account_data
+		SET Account_balance = Account_balance + t_Amount
+		WHERE Account_id = Receiving_account;
+​
+COMMIT WORK;
+​
+END//
+DELIMITER ;
+
+select * from income_tax_liabilities;
+----------------------- SENDING 20 FROM ACCOUNT 1 TO ACCOUNT 7:
+Select * from transactions;
+select * from account_data;
+CALL transfer(20, 1, 7);
+​
+​
+---- PROCEDURE TO FIND ALL TRANSACTIONS WHERE (ANY OF) A SPECIFIC CLIENTS ACCOUNT(S) WAS/WERE CREDITED
+DELIMITER //
+CREATE PROCEDURE find_cid_cred (IN f_name VARCHAR(50), IN s_name VARCHAR(50)
+BEGIN
+  SELECT transaction_number AS 'Transaction Number',
+  Amount
+	FROM transactions t
+	JOIN account_data ad
+   ON ad.account_id = t.acc_credited
+  JOIN customer_data cd
+   ON ad.accholder_id = cd.customer_id
+	WHERE f_name = cd.customer_forename
+   AND s_name = cd.customer_surname;
+END//
+DELIMITER ;
+​
+---- PROCEDURE TO FIND ALL TRANSACTIONS WHERE (ANY OF) A SPECIFIC CLIENT ACCOUNT(S) WAS/WERE DEBITED
+DELIMITER //
+CREATE PROCEDURE find_cid_deb(IN f_name VARCHAR(50), IN s_name VARCHAR(50))
+BEGIN
+  SELECT transaction_number AS 'Transaction Number',
+  Amount
+	FROM transactions t
+	JOIN account_data ad
+   ON ad.account_id = t.acc_debited
+  JOIN customer_data cd
+   ON ad.accholder_id = cd.customer_id
+	WHERE f_name = cd.customer_forename
+   AND s_name = cd.customer_surname;
+END//
+DELIMITER ;
+​
+/////////////////////////////// QUERIES
+​
+------------------QUERY WITH A SUBQUERY
+​
+--- A QUERY TO DETERMINE WHICH CUSTOMERS HAVE AN ACCOUNT WITH BALANCE > HIGHER A SPECIFIC ACCOUNT (by id).
+​
+SELECT 
+  cd.customer_forename, 
+  cd.customer_surname, 
+  ad.account_id, 
+  ad.account_balance
+  FROM customer_data cd, account_data ad
+  WHERE cd.customer_id = ad.accholder_id 
+  AND ad.account_balance > (
+    SELECT account_balance
+    FROM account_data
+    WHERE account_id = 1);
+​
+---- QUERY TO SELECT NUMBER OF CUSTOMERS IN EACH BRANCH
+SELECT 
+	branch_id,
+    COUNT(customer_id) 
+    FROM customer_data
+    GROUP BY branch_id;
+​
+​
+  --- A QUERY WITH HAVING AND GROUP BY (N OF CUSTOMERS BY BRANCH, WHERE THERE ARE MORE THAN 3)
+​
+SELECT 
+	cd.c_branch AS 'Branch ID',
+    b.branch_location AS 'Location',
+    COUNT(DISTINCT cd.customer_id) AS 'Number of Customers'
+    FROM customer_data cd
+    JOIN branch b
+    ON cd.c_branch = b.branch_id
+    GROUP BY c_branch
+    HAVING COUNT(DISTINCT Cd.customer_id) > 3;
+​
+---- EVENT: ADJUSTS EMPLOYEE PAY BY 10% EVERY YEAR
+​
+SET GLOBAL event_scheduler = ON;
+​
+DELIMITER //
+CREATE EVENT Salary_Adjustment
+ON SCHEDULE EVERY 1 YEAR STARTS '2023-01-01 00:00:01'
+	DO BEGIN
+		UPDATE employee_data 
+        SET hourly_wage = ROUND(hourly_wage * 1.1, 2);
+END//
+​
